@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>SKYNEX — Time-Aware Food Redistribution Dispatch Platform</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              900: '#064e3b'
+            },
+            amber: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706'
+            },
+            dark: {
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+    
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(16, 185, 129, 0.3);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(16, 185, 129, 0.7);
+    }
+
+    /* Radar animation */
+    @keyframes radar-sweep {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .animate-radar {
+      animation: radar-sweep 4s linear infinite;
+    }
+
+    /* Pulse Glow */
+    @keyframes subtle-glow {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.08); }
+    }
+    .animate-glow {
+      animation: subtle-glow 3s ease-in-out infinite;
+    }
+
+    /* Mock camera scan line */
+    @keyframes scan-line {
+      0% { top: 0%; opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { top: 100%; opacity: 0.2; }
+    }
+    .animate-scan {
+      animation: scan-line 2.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-start p-0 md:py-6 selection:bg-brand-500 selection:text-slate-950">
+
+  <!-- Desktop Header Controls Bar -->
+  <aside aria-label="Desktop Controls" class="w-full max-w-md hidden md:flex items-center justify-between pb-3 px-2 text-xs text-slate-400">
+    <div class="flex items-center space-x-2">
+      <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span class="font-mono text-emerald-400 font-semibold tracking-wide">SKYNEX DISPATCH OS v2.6</span>
+    </div>
+    <div class="flex items-center space-x-2">
+      <button onclick="toggleDeviceFrame()" id="frameToggleBtn" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1 border border-slate-700">
+        <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+        <span>Mobile Bezel: ON</span>
+      </button>
+      <button onclick="resetAppDemo()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex items-center gap-1 border border-slate-700">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+        <span>Reset Data</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Mobile Frame Container -->
+  <main id="appShell" class="w-full max-w-md bg-slate-900 md:rounded-[42px] md:border-[10px] md:border-slate-800 shadow-2xl overflow-hidden flex flex-col h-[100vh] md:h-[860px] relative transition-all duration-300">
+    
+    <!-- Phone Notch / Hardware Status Bar -->
+    <header class="bg-slate-950 px-6 pt-3 pb-2 flex items-center justify-between text-xs text-slate-400 select-none z-30 border-b border-slate-800/80">
+      <span class="font-mono font-semibold text-slate-200" id="liveClock">12:45 PM</span>
+      <div class="flex items-center space-x-2 text-[10px] tracking-wider text-slate-400">
+        <span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/60 font-mono font-bold">2dsphere GPS</span>
+        <div class="flex items-center gap-1 text-slate-300">
+          <i data-lucide="wifi" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <i data-lucide="battery-charging" class="w-4 h-4 text-emerald-400"></i>
+        </div>
+      </div>
+    </header>
+
+    <!-- Top Navigation & Role Selector Bar -->
+    <section aria-label="Role Switcher" class="bg-slate-900/95 backdrop-blur-md px-4 py-2.5 border-b border-slate-800/80 z-20 flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-base shadow-lg shadow-brand-500/20">
+            S
+          </div>
+          <div>
+            <h1 class="text-sm font-bold tracking-tight text-white flex items-center gap-1">
+              SKYNEX
+              <span class="text-[10px] font-normal text-slate-400 px-1.5 py-0.2 bg-slate-800 rounded">Time-Aware</span>
+            </h1>
+            <p class="text-[10px] text-slate-400">Surplus Food Dispatch Engine</p>
+          </div>
+        </div>
+
+        <!-- Role Badge Button -->
+        <div class="flex items-center bg-slate-950 rounded-lg p-1 border border-slate-800 text-[11px]">
+          <button onclick="setRole('donor')" id="roleBtn-donor" class="px-2 py-0.5 rounded font-medium transition text-white bg-brand-600 shadow-sm">Donor</button>
+          <button onclick="setRole('ngo')" id="roleBtn-ngo" class="px-2 py-0.5 rounded font-medium transition text-slate-400 hover:text-white">Shelter</button>
+          <button onclick="setRole('courier')" id="roleBtn-courier" class="px-2 py-0.5 rounded font-medium transition text-slate-400 hover:text-white">Courier</button>
+        </div>
+      </div>
+
+      <!-- System Ticker Banner -->
+      <div class="bg-slate-950/70 rounded-lg px-2.5 py-1.5 border border-slate-800/60 flex items-center justify-between text-[11px]">
+        <div class="flex items-center gap-1.5 overflow-hidden">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span class="text-slate-300 truncate" id="systemStatusText">Active Dispatch: 180 Meals expiring in 02:14:00</span>
+        </div>
+        <span class="text-emerald-400 font-mono font-semibold whitespace-nowrap text-[10px] ml-2">FSSAI Compliant</span>
+      </div>
+    </section>
+
+    <!-- Scrollable Screen Content Canvas -->
+    <main class="flex-1 overflow-y-auto relative p-4 space-y-4 bg-gradient-to-b from-slate-900 to-slate-950 pb-20" id="mainContainer">
+      
+      <!-- ================= VIEW 1: RADAR / OVERVIEW ================= -->
+      <div id="view-radar" class="space-y-4">
+        <!-- Live Urgency Hero Card -->
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/70 p-4 shadow-xl">
+          <div class="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none"></div>
+          
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-amber-400 font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                <i data-lucide="flame" class="w-3 h-3 text-amber-400"></i> High Freshness Risk
+              </span>
+              <h2 class="text-base font-bold text-white mt-2">Le Meridien • Banquet Hall</h2>
+              <p class="text-xs text-slate-400">Fresh Prepared Biryani & Curry (Cooked 1.5 hrs ago)</p>
+            </div>
+            <!-- Countdown Pill -->
+            <div class="text-right">
+              <span class="text-[10px] text-slate-400 block font-mono">SAFE UNTIL</span>
+              <span class="font-mono text-base font-bold text-emerald-400" id="radarTimer">02:14:22</span>
+            </div>
+          </div>
+
+          <!-- Matching Engine Visual Radar -->
+          <div class="mt-4 p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex items-center justify-between">
+            <div class="relative w-16 h-16 rounded-full border border-emerald-500/30 flex items-center justify-center overflow-hidden">
+              <div class="absolute inset-0 bg-emerald-500/10 rounded-full animate-ping opacity-25"></div>
+              <div class="w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-radar origin-center absolute"></div>
+              <i data-lucide="radio" class="w-6 h-6 text-emerald-400 relative z-10"></i>
+            </div>
+            
+            <div class="flex-1 ml-3 space-y-1">
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-300 font-medium">Auto-Matching Recipient #1</span>
+                <span class="text-emerald-400 font-mono font-semibold" id="claimCountdownText">38s Left</span>
+              </div>
+              <!-- Progress Bar -->
+              <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-400 to-amber-400 h-1.5 rounded-full transition-all duration-1000" id="countdownProgressBar" style="width: 78%"></div>
+              </div>
+              <p class="text-[11px] text-slate-400 flex items-center justify-between">
+                <span>Anbu Children Shelter (1.4 km)</span>
+                <span class="text-[10px] text-amber-400 font-mono">Fallback Queued</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="mt-3 grid grid-cols-2 gap-2">
+            <button onclick="switchTab('ngo')" class="w-full py-2 px-3 bg-brand-600 hover:bg-brand-500 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition shadow-lg shadow-brand-600/20">
+              <i data-lucide="hand-metal" class="w-3.5 h-3.5"></i> Simulate NGO Claim
+            </button>
+            <button onclick="triggerCascadeFallback()" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs rounded-xl flex items-center justify-center gap-1.5 transition border border-slate-700">
+              <i data-lucide="skip-forward" class="w-3.5 h-3.5"></i> Test Auto-Fallback
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Core Pillars Overview Cards -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-1 hover:border-emerald-500/40 transition cursor-pointer" onclick="switchTab('donor')">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-1">
+              <i data-lucide="clock" class="w-4 h-4"></i>
+            </div>
+            <h3 class="text-xs font-semibold text-white">Time Freshness</h3>
+            <p class="text-[11px] text-slate-400 leading-tight">Every listing has an expiry timer. Urgent meals matched first.</p>
+          </div>
+
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-1 hover:border-emerald-500/40 transition cursor-pointer" onclick="switchTab('courier')">
+            <div class="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center mb-1">
+              <i data-lucide="navigation-2" class="w-4 h-4"></i>
+            </div>
+            <h3 class="text-xs font-semibold text-white">Live Tracking</h3>
+            <p class="text-[11px] text-slate-400 leading-tight">OSRM route optimization beats the food expiry deadline.</p>
+          </div>
+
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-1 hover:border-emerald-500/40 transition cursor-pointer" onclick="switchTab('donor')">
+            <div class="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1">
+              <i data-lucide="shield-alert" class="w-4 h-4"></i>
+            </div>
+            <h3 class="text-xs font-semibold text-white">Allergen Safety</h3>
+            <p class="text-[11px] text-slate-400 leading-tight">FSSAI allergen tags clearly declared before claiming.</p>
+          </div>
+
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-1 hover:border-emerald-500/40 transition cursor-pointer" onclick="switchTab('verify')">
+            <div class="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center mb-1">
+              <i data-lucide="scan-face" class="w-4 h-4"></i>
+            </div>
+            <h3 class="text-xs font-semibold text-white">Verified Handover</h3>
+            <p class="text-[11px] text-slate-400 leading-tight">On-device OpenCV face verify or OTP with GPS geotag proof.</p>
+          </div>
+        </div>
+
+        <!-- Multi-Channel Messaging Preview -->
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-3.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-semibold text-white flex items-center gap-1.5">
+              <i data-lucide="message-square" class="w-3.5 h-3.5 text-emerald-400"></i> Inclusive Multi-Channel Reach
+            </h3>
+            <span class="text-[10px] text-slate-400 font-mono">No smartphone needed</span>
+          </div>
+          
+          <div class="flex items-center gap-2">
+            <button onclick="previewChannel('wa')" id="channelBtn-wa" class="flex-1 py-1.5 px-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-medium rounded-lg transition">WhatsApp Bot</button>
+            <button onclick="previewChannel('sms')" id="channelBtn-sms" class="flex-1 py-1.5 px-2 bg-slate-800 text-slate-400 border border-slate-700 text-[11px] font-medium rounded-lg transition">Offline SMS</button>
+            <button onclick="previewChannel('lang')" id="channelBtn-lang" class="flex-1 py-1.5 px-2 bg-slate-800 text-slate-400 border border-slate-700 text-[11px] font-medium rounded-lg transition">தமிழ் / हिंदी</button>
+          </div>
+
+          <div id="channelContent" class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 leading-relaxed">
+            <span class="text-emerald-400 font-semibold">[WhatsApp Dispatch Bot]</span><br/>
+            🚨 *URGENT FOOD DISPATCH nearby*<br/>
+            📍 From: Hotel GreenPark, Vadapalani (1.2km)<br/>
+            🍛 Item: 45 Veg Meals (Rice, Sambar, Poriyal)<br/>
+            ⏳ Safe until: *03:15 PM* (92 mins remaining)<br/>
+            Reply *ACCEPT 45* within 45 seconds to claim.
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= VIEW 2: POST SURPLUS (DONOR VIEW) ================= -->
+      <div id="view-donor" class="hidden space-y-3.5">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div>
+            <h2 class="text-sm font-bold text-white">Create Food Dispatch</h2>
+            <p class="text-[11px] text-slate-400">Time-sensitive surplus listing for kitchens & hotels</p>
+          </div>
+          <span class="px-2 py-0.5 text-[10px] font-mono bg-brand-500/10 text-brand-400 border border-brand-500/20 rounded-md">Donor Role</span>
+        </div>
+
+        <!-- Form Elements -->
+        <form id="donorForm" onsubmit="handleDonorSubmit(event)" class="space-y-3 text-xs">
+          <!-- Food Title & Type -->
+          <div>
+            <label class="block text-slate-400 mb-1 font-medium">Surplus Food Name & Source</label>
+            <input type="text" id="foodTitle" value="Steamed Basmati Rice & Dal Makhani" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-brand-500" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-slate-400 mb-1 font-medium">Cuisine / Category</label>
+              <select id="foodCategory" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-white text-xs focus:outline-none focus:border-brand-500">
+                <option>Cooked Hot Meals</option>
+                <option>Bakery & Bread</option>
+                <option>Raw Vegetables/Fruit</option>
+                <option>Dry Ration/Packaged</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 font-medium">Estimated Portions</label>
+              <div class="flex items-center bg-slate-950 border border-slate-700 rounded-xl px-2">
+                <input type="number" id="mealCount" value="80" min="5" max="1000" class="w-full bg-transparent py-2 text-white font-mono focus:outline-none text-right pr-2" />
+                <span class="text-slate-500 text-[11px]">meals</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Freshness / Safe-until Slider -->
+          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-300 font-medium flex items-center gap-1">
+                <i data-lucide="timer" class="w-3.5 h-3.5 text-amber-400"></i> Safe-Until Countdown Window
+              </span>
+              <span class="text-emerald-400 font-mono font-bold" id="sliderValue">3.5 Hours</span>
+            </div>
+            <input type="range" min="1" max="8" step="0.5" value="3.5" id="safeUntilSlider" oninput="updateSliderValue(this.value)" class="w-full accent-emerald-500 bg-slate-800 h-1.5 rounded-lg cursor-pointer" />
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>1 hr (Critical)</span>
+              <span>4 hrs (Cooked food standard)</span>
+              <span>8 hrs (Dry/Ambient)</span>
+            </div>
+          </div>
+
+          <!-- Allergen Declaration (FSSAI Mandate) -->
+          <div>
+            <label class="block text-slate-400 mb-1 font-medium flex items-center justify-between">
+              <span>Mandatory Allergen Declaration</span>
+              <span class="text-[10px] text-emerald-400">FSSAI Schedule IV</span>
+            </label>
+            <div class="grid grid-cols-4 gap-1.5 text-center text-[10px]">
+              <label class="cursor-pointer bg-slate-950 border border-slate-800 rounded-lg p-1.5 hover:border-slate-600 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+                <input type="checkbox" name="allergen" value="Dairy" checked class="hidden" />
+                <span class="block text-slate-300">🥛 Dairy</span>
+              </label>
+              <label class="cursor-pointer bg-slate-950 border border-slate-800 rounded-lg p-1.5 hover:border-slate-600 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+                <input type="checkbox" name="allergen" value="Gluten" class="hidden" />
+                <span class="block text-slate-300">🌾 Gluten</span>
+              </label>
+              <label class="cursor-pointer bg-slate-950 border border-slate-800 rounded-lg p-1.5 hover:border-slate-600 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+                <input type="checkbox" name="allergen" value="Nuts" class="hidden" />
+                <span class="block text-slate-300">🥜 Nuts</span>
+              </label>
+              <label class="cursor-pointer bg-slate-950 border border-slate-800 rounded-lg p-1.5 hover:border-slate-600 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-500/10">
+                <input type="checkbox" name="allergen" value="Spice" checked class="hidden" />
+                <span class="block text-slate-300">🌶️️ Spicy</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Donor Pickup Coordinates -->
+          <div>
+            <label class="block text-slate-400 mb-1 font-medium">Pickup Landmark / Facility</label>
+            <div class="relative">
+              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-brand-400 absolute left-3 top-3"></i>
+              <input type="text" id="pickupAddress" value="ITC Grand Chola Banquet Kitchen, Guindy, Chennai" class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-white focus:outline-none focus:border-brand-500 text-xs" />
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-3 bg-gradient-to-r from-brand-600 to-emerald-500 hover:from-brand-500 hover:to-emerald-400 text-slate-950 font-bold rounded-xl shadow-lg shadow-brand-500/20 flex items-center justify-center gap-2 text-xs transition">
+            <i data-lucide="send" class="w-4 h-4"></i> Dispatch Instant Geo-Matching
+          </button>
+        </form>
+      </div>
+
+      <!-- ================= VIEW 3: SHELTER / NGO CLAIM ================= -->
+      <div id="view-ngo" class="hidden space-y-3.5">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div>
+            <h2 class="text-sm font-bold text-white">NGO Claim Desk</h2>
+            <p class="text-[11px] text-slate-400">Countdown-based priority claim window</p>
+          </div>
+          <span class="px-2 py-0.5 text-[10px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md">Recipient Role</span>
+        </div>
+
+        <!-- Incoming Offer Card with Ticking Clock -->
+        <div class="bg-slate-950 border-2 border-emerald-500/60 rounded-2xl p-4 space-y-3 relative overflow-hidden shadow-2xl">
+          <div class="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[10px] font-black px-3 py-0.5 rounded-bl-lg font-mono">
+            RANK #1 MATCH
+          </div>
+
+          <div class="pr-16">
+            <span class="text-[10px] font-mono text-emerald-400 font-semibold tracking-wider uppercase">Distance: 1.2 km away</span>
+            <h3 class="text-base font-bold text-white" id="ngoFoodTitle">80x Fresh Steamed Biryani & Curry</h3>
+            <p class="text-xs text-slate-400" id="ngoDonorName">ITC Grand Chola Kitchen</p>
+          </div>
+
+          <!-- Allergen Pills -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 rounded-md text-slate-300">🥛 Contains Dairy</span>
+            <span class="text-[10px] px-2 py-0.5 bg-slate-900 border border-slate-800 rounded-md text-slate-300">🌶️ Medium Spice</span>
+            <span class="text-[10px] px-2 py-0.5 bg-emerald-950 border border-emerald-800 text-emerald-400">Nut Free</span>
+          </div>
+
+          <!-- Countdown Visual Lock -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] text-slate-400 block font-mono">RECIPIENT LOCK EXPIRING IN</span>
+              <span class="text-2xl font-mono font-extrabold text-amber-400" id="lockCountdown">00:32</span>
+            </div>
+            <div class="text-right text-[11px] text-slate-400">
+              <span class="text-slate-300 font-semibold block">Auto-reassigns to:</span>
+              <span>Anbu Shelter (2.8 km)</span>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button onclick="acceptNgoClaim()" class="py-2.5 bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-1.5 text-xs transition shadow-lg shadow-brand-500/20">
+              <i data-lucide="check-circle" class="w-4 h-4"></i> Accept & Lock Delivery
+            </button>
+            <button onclick="triggerCascadeFallback()" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-xl flex items-center justify-center gap-1 text-xs transition border border-slate-700">
+              <i data-lucide="x-circle" class="w-4 h-4"></i> Cannot Accept (Pass)
+            </button>
+          </div>
+        </div>
+
+        <!-- Claim History List -->
+        <div class="space-y-2">
+          <span class="text-xs font-semibold text-slate-300">Previous Verified Receipts Today</span>
+          
+          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs">
+            <div>
+              <p class="font-medium text-white">45 Pax Box Lunches</p>
+              <span class="text-[10px] text-slate-500">Delivered 11:20 AM • Geotag Verified</span>
+            </div>
+            <span class="font-mono text-emerald-400 font-semibold text-[11px] bg-emerald-950 px-2 py-0.5 rounded border border-emerald-900">SAVED</span>
+          </div>
+
+          <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs">
+            <div>
+              <p class="font-medium text-white">30 Loaves Artisan Bread</p>
+              <span class="text-[10px] text-slate-500">Delivered 09:15 AM • OTP Confirmed</span>
+            </div>
+            <span class="font-mono text-emerald-400 font-semibold text-[11px] bg-emerald-950 px-2 py-0.5 rounded border border-emerald-900">SAVED</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= VIEW 4: ROUTE & GPS (COURIER VIEW) ================= -->
+      <div id="view-courier" class="hidden space-y-3.5">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div>
+            <h2 class="text-sm font-bold text-white">Volunteer Delivery Route</h2>
+            <p class="text-[11px] text-slate-400">OSRM route optimized to beat safe-until deadline</p>
+          </div>
+          <span class="px-2 py-0.5 text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-md">Volunteer Role</span>
+        </div>
+
+        <!-- Simulated Leaflet / OSRM Map Canvas -->
+        <div class="relative w-full h-52 bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden flex flex-col justify-between p-3">
+          <!-- Vector Map Grid Background -->
+          <div class="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]"></div>
+          
+          <!-- Animated Route SVG -->
+          <svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 45 45 Q 160 30, 220 100 T 310 160" fill="none" stroke="#334155" stroke-width="4" stroke-linecap="round" />
+            <path d="M 45 45 Q 160 30, 220 100 T 310 160" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-dasharray="8 6" class="animate-pulse" />
+          </svg>
+
+          <!-- Origin Pin -->
+          <div class="absolute left-8 top-8 z-10 flex flex-col items-center">
+            <div class="w-7 h-7 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-bold text-xs shadow-lg shadow-emerald-500/50">
+              <i data-lucide="chef-hat" class="w-4 h-4"></i>
+            </div>
+            <span class="text-[9px] font-mono bg-slate-900/90 text-white px-1 rounded border border-slate-800 mt-1">ITC Kitchen</span>
+          </div>
+
+          <!-- Dynamic Courier Vehicle Pin -->
+          <div class="absolute left-48 top-20 z-10 flex flex-col items-center animate-bounce" id="courierCarMarker">
+            <div class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/50 border-2 border-white">
+              <i data-lucide="bike" class="w-4 h-4"></i>
+            </div>
+            <span class="text-[9px] font-mono bg-blue-900 text-blue-200 px-1 rounded mt-0.5">Volunteer Suresh</span>
+          </div>
+
+          <!-- Destination Pin -->
+          <div class="absolute right-8 bottom-6 z-10 flex flex-col items-center">
+            <div class="w-7 h-7 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-xs shadow-lg shadow-amber-500/50">
+              <i data-lucide="home" class="w-4 h-4"></i>
+            </div>
+            <span class="text-[9px] font-mono bg-slate-900/90 text-white px-1 rounded border border-slate-800 mt-1">Anbu Shelter</span>
+          </div>
+
+          <!-- Top Map Overlay Badges -->
+          <div class="relative z-10 flex items-center justify-between text-[10px]">
+            <span class="px-2 py-0.5 bg-slate-900/90 text-slate-300 rounded-md border border-slate-700/80 font-mono flex items-center gap-1">
+              <i data-lucide="gauge" class="w-3 h-3 text-emerald-400"></i> Speed: 24 km/h
+            </span>
+            <span class="px-2 py-0.5 bg-emerald-950 text-emerald-400 rounded-md border border-emerald-800 font-mono font-bold">
+              ETA: 8 mins (Beats safe-until by 1h 48m)
+            </span>
+          </div>
+
+          <!-- Bottom Map Overlay -->
+          <div class="relative z-10 flex items-center justify-between text-xs bg-slate-900/90 p-2 rounded-xl border border-slate-800">
+            <div>
+              <p class="font-bold text-white text-[11px]">Route: Anna Salai → GST Road</p>
+              <p class="text-[10px] text-slate-400">Traffic: Moderate • 2.6 km remaining</p>
+            </div>
+            <button onclick="switchTab('verify')" class="px-2.5 py-1 bg-brand-500 text-slate-950 font-bold rounded-lg text-[11px] flex items-center gap-1">
+              Arrive <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Direct Contact Triggers -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <button onclick="alert('Calling NGO Co-ordinator: +91 98401 22345')" class="p-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-200 flex items-center justify-center gap-2">
+            <i data-lucide="phone-call" class="w-3.5 h-3.5 text-emerald-400"></i> Call Recipient
+          </button>
+          <button onclick="alert('Opening WhatsApp direct navigation update thread...')" class="p-2.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl text-slate-200 flex items-center justify-center gap-2">
+            <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-400"></i> WhatsApp Alert
+          </button>
+        </div>
+      </div>
+
+      <!-- ================= VIEW 5: VERIFICATION (HANDOVER & AUDIT) ================= -->
+      <div id="view-verify" class="hidden space-y-3.5">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div>
+            <h2 class="text-sm font-bold text-white">Delivery Proof & Verification</h2>
+            <p class="text-[11px] text-slate-400">GPS Timestamped Geotag + DPDP-Compliant Handover</p>
+          </div>
+          <span class="px-2 py-0.5 text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-md">Step 5/6</span>
+        </div>
+
+        <!-- Mock Geotag Camera Viewfinder -->
+        <div class="relative w-full h-64 bg-slate-950 rounded-2xl border-2 border-dashed border-slate-700 overflow-hidden flex flex-col justify-between p-3">
+          <!-- Scanning line -->
+          <div class="absolute left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_12px_#10b981] animate-scan z-10"></div>
+          
+          <!-- Camera Frame Guides -->
+          <div class="absolute inset-4 border border-emerald-500/30 rounded-xl pointer-events-none flex flex-col justify-between p-2">
+            <div class="flex justify-between text-[10px] font-mono text-emerald-400/70">
+              <span>[OPENCV LOCAL DETECT]</span>
+              <span>ISO 400 • F/1.8</span>
+            </div>
+            <!-- Face Focus Reticle -->
+            <div class="w-24 h-24 mx-auto border-2 border-emerald-400 rounded-lg flex items-center justify-center bg-emerald-500/5">
+              <span class="text-[9px] font-mono text-emerald-300 bg-slate-950/80 px-1 rounded">MATCH: 98.6%</span>
+            </div>
+            <div class="text-[10px] font-mono text-slate-400 text-center">
+              Target: Authorized Shelter Manager
+            </div>
+          </div>
+
+          <!-- Geotag & Cryptographic Watermark Overlay -->
+          <div class="relative z-20 bg-slate-950/90 backdrop-blur-md p-2 rounded-lg border border-slate-800 font-mono text-[10px] text-slate-300 space-y-0.5">
+            <div class="flex justify-between text-emerald-400 font-bold">
+              <span>LAT: 13.0102° N</span>
+              <span>LON: 80.2157° E</span>
+            </div>
+            <div class="flex justify-between text-slate-400">
+              <span id="proofTimestamp">TIMESTAMP: 2026-09-30 14:48:12</span>
+              <span>ALT: 12m</span>
+            </div>
+            <p class="text-[9px] text-slate-500 truncate">SHA-256: 7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1f... (DPDP 2023)</p>
+          </div>
+
+          <!-- Bottom Capture Switcher -->
+          <div class="relative z-20 flex items-center justify-between pt-1">
+            <div class="flex gap-1">
+              <button onclick="toggleVerifyMethod('face')" id="verifyBtn-face" class="px-2 py-1 bg-brand-600 text-slate-950 font-bold text-[10px] rounded-lg">Face Match</button>
+              <button onclick="toggleVerifyMethod('otp')" id="verifyBtn-otp" class="px-2 py-1 bg-slate-800 text-slate-300 text-[10px] rounded-lg border border-slate-700">Fallback OTP</button>
+            </div>
+            <button onclick="executeVerification()" class="px-3 py-1 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1 shadow-md">
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i> Capture & Log
+            </button>
+          </div>
+        </div>
+
+        <!-- Verification Method Explanation Note -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs text-slate-400 space-y-1">
+          <p class="font-semibold text-slate-300 flex items-center gap-1">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i> Privacy-First Biometrics
+          </p>
+          <p class="text-[11px] leading-relaxed">
+            In compliance with the <strong class="text-slate-200">Digital Personal Data Protection (DPDP) Act, 2023</strong>, face verification is strictly opt-in and processed on-device via local OpenCV embeddings. No raw facial images are stored on central cloud servers. Recipient centers can switch to OTP or QR at any time.
+          </p>
+        </div>
+      </div>
+
+      <!-- ================= VIEW 6: CSR IMPACT & ESG REPORT ================= -->
+      <div id="view-impact" class="hidden space-y-3.5">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+          <div>
+            <h2 class="text-sm font-bold text-white">ESG & CSR Impact Ledger</h2>
+            <p class="text-[11px] text-slate-400">Real-time audit metrics for donors and municipalities</p>
+          </div>
+          <span class="px-2 py-0.5 text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md">UNEP Indexed</span>
+        </div>
+
+        <!-- Main Impact KPI Grid -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <span class="text-[10px] text-slate-400 font-mono uppercase block">Meals Saved (Total)</span>
+            <span class="text-2xl font-black text-emerald-400 font-mono" id="statMeals">1,240</span>
+            <span class="text-[10px] text-emerald-500 flex items-center gap-0.5">
+              <i data-lucide="trending-up" class="w-3 h-3"></i> +180 today
+            </span>
+          </div>
+
+          <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <span class="text-[10px] text-slate-400 font-mono uppercase block">Landfill Waste Diverted</span>
+            <span class="text-2xl font-black text-amber-400 font-mono" id="statWaste">520 <span class="text-xs">kg</span></span>
+            <span class="text-[10px] text-slate-400 block">Organic solid waste</span>
+          </div>
+
+          <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <span class="text-[10px] text-slate-400 font-mono uppercase block">CO₂e Emissions Cut</span>
+            <span class="text-2xl font-black text-blue-400 font-mono" id="statCo2">1.3 <span class="text-xs">tons</span></span>
+            <span class="text-[10px] text-slate-400 block">Avoided methane factor</span>
+          </div>
+
+          <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <span class="text-[10px] text-slate-400 font-mono uppercase block">NGO Fulfillment Rate</span>
+            <span class="text-2xl font-black text-purple-400 font-mono">96.8%</span>
+            <span class="text-[10px] text-slate-400 block">Avg. rescue under 42 min</span>
+          </div>
+        </div>
+
+        <!-- Instant Certificate Generator -->
+        <div class="p-4 bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-950 rounded-2xl border border-emerald-500/30 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="award" class="w-5 h-5 text-emerald-400"></i>
+              <div>
+                <h4 class="text-xs font-bold text-white">CSR Tax Audit Certificate</h4>
+                <p class="text-[10px] text-slate-400">Ready for corporate ESG disclosures</p>
+              </div>
+            </div>
+            <button onclick="downloadCertMock()" class="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-[11px] transition shadow">
+              Export PDF
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-300 font-mono bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
+            Audit ID: SKYNEX-2026-CH-092<br/>
+            Verified Donor: ITC Grand Chola Kitchens<br/>
+            Compliant with: FSSAI Surplus Guidelines & UNEP 2024
+          </p>
+        </div>
+
+        <!-- System Business & Scalability Summary -->
+        <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs space-y-1 text-slate-400">
+          <h4 class="font-semibold text-slate-300">Revenue & Self-Sustaining Model</h4>
+          <p class="text-[11px] leading-relaxed">
+            Free for grassroots shelters and community volunteers. Sustained via corporate ESG/CSR analytics subscriptions, municipality landfill diversion credits, and sponsored logistics routes.
+          </p>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Bottom Persistent Dock / Navigation Tabs -->
+    <nav aria-label="App Navigation" class="bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-2 py-2 flex items-center justify-around z-30 select-none">
+      <button onclick="switchTab('radar')" id="tabBtn-radar" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-emerald-400 transition font-medium">
+        <i data-lucide="radar" class="w-4 h-4"></i>
+        <span class="text-[10px]">Radar</span>
+      </button>
+
+      <button onclick="switchTab('donor')" id="tabBtn-donor" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-slate-400 hover:text-slate-200 transition font-medium">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+        <span class="text-[10px]">Post Food</span>
+      </button>
+
+      <button onclick="switchTab('ngo')" id="tabBtn-ngo" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-slate-400 hover:text-slate-200 transition font-medium">
+        <i data-lucide="inbox" class="w-4 h-4"></i>
+        <span class="text-[10px]">Claim Desk</span>
+      </button>
+
+      <button onclick="switchTab('courier')" id="tabBtn-courier" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-slate-400 hover:text-slate-200 transition font-medium">
+        <i data-lucide="map" class="w-4 h-4"></i>
+        <span class="text-[10px]">Transit</span>
+      </button>
+
+      <button onclick="switchTab('verify')" id="tabBtn-verify" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-slate-400 hover:text-slate-200 transition font-medium">
+        <i data-lucide="shield-check" class="w-4 h-4"></i>
+        <span class="text-[10px]">Verify</span>
+      </button>
+
+      <button onclick="switchTab('impact')" id="tabBtn-impact" class="flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl text-slate-400 hover:text-slate-200 transition font-medium">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+        <span class="text-[10px]">Impact</span>
+      </button>
+    </nav>
+  </main>
+
+  <!-- Interactive JavaScript Engine -->
+  <script>
+    // Application State Store
+    const state = {
+      activeTab: 'radar',
+      currentRole: 'donor',
+      claimSecondsLeft: 38,
+      radarSecondsLeft: 8062, // 2h 14m 22s
+      isFallbackTriggered: false,
+      mealsTotal: 1240,
+      wasteKg: 520,
+      co2Tons: 1.3,
+      currentListing: {
+        title: "80x Fresh Steamed Biryani & Curry",
+        donor: "ITC Grand Chola Kitchen, Guindy",
+        meals: 80,
+        safeHours: 3.5,
+        allergens: ["Dairy", "Spice"]
+      }
+    };
+
+    // Initialize Lucide Icons & Clocks
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      startClocks();
+      startTimers();
+    });
+
+    function startClocks() {
+      function update() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const fullTimeStr = now.toISOString().replace('T', ' ').substring(0, 19);
+        
+        const clockEl = document.getElementById('liveClock');
+        if (clockEl) clockEl.innerText = timeStr;
+
+        const proofEl = document.getElementById('proofTimestamp');
+        if (proofEl) proofEl.innerText = 'TIMESTAMP: ' + fullTimeStr;
+      }
+      update();
+      setInterval(update, 1000);
+    }
+
+    // Ticking Countdown Timers
+    function startTimers() {
+      setInterval(() => {
+        // Safe-until timer
+        if (state.radarSecondsLeft > 0) {
+          state.radarSecondsLeft--;
+          const hrs = String(Math.floor(state.radarSecondsLeft / 3600)).padStart(2, '0');
+          const mins = String(Math.floor((state.radarSecondsLeft % 3600) / 60)).padStart(2, '0');
+          const secs = String(state.radarSecondsLeft % 60).padStart(2, '0');
+          const radarEl = document.getElementById('radarTimer');
+          if (radarEl) radarEl.innerText = `${hrs}:${mins}:${secs}`;
+        }
+
+        // Claim lock countdown (45s window)
+        if (state.claimSecondsLeft > 0) {
+          state.claimSecondsLeft--;
+          const lockEl = document.getElementById('lockCountdown');
+          const radarClaimText = document.getElementById('claimCountdownText');
+          const progressBar = document.getElementById('countdownProgressBar');
+
+          if (lockEl) lockEl.innerText = `00:${String(state.claimSecondsLeft).padStart(2, '0')}`;
+          if (radarClaimText) radarClaimText.innerText = `${state.claimSecondsLeft}s Left`;
+          if (progressBar) progressBar.style.width = `${(state.claimSecondsLeft / 45) * 100}%`;
+        } else {
+          // Trigger automatic fallback if countdown expires naturally
+          if (!state.isFallbackTriggered) {
+            triggerCascadeFallback(true);
+          }
+        }
+      }, 1000);
+    }
+
+    // Tab Navigation Switcher
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+      const views = ['radar', 'donor', 'ngo', 'courier', 'verify', 'impact'];
+      
+      views.forEach(v => {
+        const viewEl = document.getElementById(`view-${v}`);
+        const tabBtn = document.getElementById(`tabBtn-${v}`);
+        
+        if (v === tabId) {
+          viewEl.classList.remove('hidden');
+          tabBtn.classList.remove('text-slate-400');
+          tabBtn.classList.add('text-emerald-400');
+        } else {
+          viewEl.classList.add('hidden');
+          tabBtn.classList.remove('text-emerald-400');
+          tabBtn.classList.add('text-slate-400');
+        }
+      });
+
+      // Refresh icons in newly opened view
+      lucide.createIcons();
+    }
+
+    // Persona Role Switcher
+    function setRole(role) {
+      state.currentRole = role;
+      const roles = ['donor', 'ngo', 'courier'];
+      roles.forEach(r => {
+        const btn = document.getElementById(`roleBtn-${r}`);
+        if (r === role) {
+          btn.className = "px-2 py-0.5 rounded font-medium transition text-slate-950 bg-brand-400 font-bold shadow-sm";
+        } else {
+          btn.className = "px-2 py-0.5 rounded font-medium transition text-slate-400 hover:text-white";
+        }
+      });
+
+      // Role auto-routes to best initial screen
+      if (role === 'donor') switchTab('donor');
+      if (role === 'ngo') switchTab('ngo');
+      if (role === 'courier') switchTab('courier');
+    }
+
+    // Dynamic Safe-Until Slider Value
+    function updateSliderValue(val) {
+      document.getElementById('sliderValue').innerText = `${val} Hours`;
+    }
+
+    // Handle Surplus Listing Form Submit
+    function handleDonorSubmit(e) {
+      e.preventDefault();
+      const title = document.getElementById('foodTitle').value;
+      const meals = document.getElementById('mealCount').value;
+      const hours = document.getElementById('safeUntilSlider').value;
+      const pickup = document.getElementById('pickupAddress').value;
+
+      state.currentListing.title = `${meals}x ${title}`;
+      state.currentListing.donor = pickup;
+      state.currentListing.meals = parseInt(meals);
+      state.currentListing.safeHours = parseFloat(hours);
+
+      // Reset Claim Timer to 45s
+      state.claimSecondsLeft = 45;
+      state.radarSecondsLeft = Math.floor(hours * 3600);
+      state.isFallbackTriggered = false;
+
+      // Update UI elements
+      document.getElementById('ngoFoodTitle').innerText = `${meals}x ${title}`;
+      document.getElementById('ngoDonorName').innerText = pickup;
+      document.getElementById('systemStatusText').innerText = `Active Dispatch: ${meals} meals dispatched nearby`;
+
+      alert(`✅ Dispatch Published!\nGeospatial 2dsphere index matching closest NGO shelters within 3.5 km.`);
+      switchTab('ngo');
+    }
+
+    // Fallback Cascading Mechanism
+    function triggerCascadeFallback(isAuto = false) {
+      state.isFallbackTriggered = true;
+      state.claimSecondsLeft = 45;
+      
+      const ngoFoodEl = document.getElementById('ngoFoodTitle');
+      const ngoDonorEl = document.getElementById('ngoDonorName');
+      
+      if (ngoFoodEl) ngoFoodEl.innerText = "Cascaded: " + state.currentListing.title;
+      if (ngoDonorEl) ngoDonorEl.innerText = "Redirected to: Seva Community Kitchen (Rank #2, 2.8 km)";
+
+      const toastMsg = isAuto 
+        ? "⚠️ Auto-Fallback: Claim timer expired for Recipient #1. Listing instantly cascaded to Recipient #2 (Seva Community Kitchen)!"
+        : "🔄 Manual Fallback: Recipient passed. Instantly transferred to secondary shelter with zero delay.";
+      
+      alert(toastMsg);
+      document.getElementById('systemStatusText').innerText = "Cascaded to Recipient #2 (Seva Kitchen)";
+    }
+
+    // Accept Claim (NGO Desk)
+    function acceptNgoClaim() {
+      alert("🎉 Claim Locked! Volunteer courier dispatched to pick up food before freshness deadline.");
+      document.getElementById('systemStatusText').innerText = "In Transit: Volunteer Suresh on route";
+      switchTab('courier');
+    }
+
+    // Geotag & Face Match Proof Execution
+    function executeVerification() {
+      state.mealsTotal += state.currentListing.meals;
+      state.wasteKg += Math.round(state.currentListing.meals * 0.42);
+      state.co2Tons = (parseFloat(state.co2Tons) + 0.12).toFixed(2);
+
+      // Update Impact stats
+      document.getElementById('statMeals').innerText = state.mealsTotal.toLocaleString();
+      document.getElementById('statWaste').innerHTML = `${state.wasteKg} <span class="text-xs">kg</span>`;
+      document.getElementById('statCo2').innerHTML = `${state.co2Tons} <span class="text-xs">tons</span>`;
+
+      alert("📸 Delivery Handover Verified!\n• Geotag: 13.0102° N, 80.2157° E\n• Timestamp: Logged\n• Identity: On-Device OpenCV Face Match Confirmed\n\nImpact Ledger updated.");
+      switchTab('impact');
+    }
+
+    // Switch Verification Method
+    function toggleVerifyMethod(method) {
+      const faceBtn = document.getElementById('verifyBtn-face');
+      const otpBtn = document.getElementById('verifyBtn-otp');
+
+      if (method === 'face') {
+        faceBtn.className = "px-2 py-1 bg-brand-600 text-slate-950 font-bold text-[10px] rounded-lg";
+        otpBtn.className = "px-2 py-1 bg-slate-800 text-slate-300 text-[10px] rounded-lg border border-slate-700";
+      } else {
+        otpBtn.className = "px-2 py-1 bg-brand-600 text-slate-950 font-bold text-[10px] rounded-lg";
+        faceBtn.className = "px-2 py-1 bg-slate-800 text-slate-300 text-[10px] rounded-lg border border-slate-700";
+        const otp = prompt("Enter 4-digit Recipient OTP:", "4892");
+        if (otp) alert(`OTP ${otp} verified successfully.`);
+      }
+    }
+
+    // Multi-Channel Preview Switcher
+    function previewChannel(type) {
+      const content = document.getElementById('channelContent');
+      const waBtn = document.getElementById('channelBtn-wa');
+      const smsBtn = document.getElementById('channelBtn-sms');
+      const langBtn = document.getElementById('channelBtn-lang');
+
+      [waBtn, smsBtn, langBtn].forEach(b => {
+        b.className = "flex-1 py-1.5 px-2 bg-slate-800 text-slate-400 border border-slate-700 text-[11px] font-medium rounded-lg transition";
+      });
+
+      if (type === 'wa') {
+        waBtn.className = "flex-1 py-1.5 px-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-medium rounded-lg transition";
+        content.innerHTML = `
+          <span class="text-emerald-400 font-semibold">[WhatsApp Cloud Dispatch]</span><br/>
+          🚨 *URGENT FOOD DISPATCH nearby*<br/>
+          📍 Location: Guindy Banquet (1.2km)<br/>
+          🍛 Quantity: 80 Hot Meals<br/>
+          ⏳ Safe-until: *03:15 PM*<br/>
+          Reply *ACCEPT* to claim instantly.
+        `;
+      } else if (type === 'sms') {
+        smsBtn.className = "flex-1 py-1.5 px-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-medium rounded-lg transition";
+        content.innerHTML = `
+          <span class="text-amber-400 font-semibold">[Offline GSM SMS Alert]</span><br/>
+          SKYNEX ALERT: 80 meals available at Guindy. Safe for 2 hrs. No internet needed. Reply 'YES 80' to 56161 to confirm pickup.
+        `;
+      } else {
+        langBtn.className = "flex-1 py-1.5 px-2 bg-emerald-600/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-medium rounded-lg transition";
+        content.innerHTML = `
+          <span class="text-purple-400 font-semibold">[தமிழ் / Local Language]</span><br/>
+          உடனடி உணவு விநியோகம்: 80 சூடான சாப்பாடு கிண்டியில் உள்ளது. செல்லுபடியாகும் நேரம்: 2 மணிநேரம். ஏற்கெனவே பெற '1' என பதிலளிக்கவும்.
+        `;
+      }
+    }
+
+    // Toggle Mobile Bezel for Desktop viewing
+    let frameActive = true;
+    function toggleDeviceFrame() {
+      const shell = document.getElementById('appShell');
+      const btn = document.getElementById('frameToggleBtn');
+      frameActive = !frameActive;
+
+      if (frameActive) {
+        shell.className = "w-full max-w-md bg-slate-900 md:rounded-[42px] md:border-[10px] md:border-slate-800 shadow-2xl overflow-hidden flex flex-col h-[100vh] md:h-[860px] relative transition-all duration-300";
+        btn.innerHTML = `<i data-lucide="smartphone" class="w-3.5 h-3.5"></i><span>Mobile Bezel: ON</span>`;
+      } else {
+        shell.className = "w-full max-w-2xl bg-slate-900 rounded-none md:rounded-2xl border border-slate-800 shadow-2xl overflow-hidden flex flex-col h-[100vh] md:h-[860px] relative transition-all duration-300";
+        btn.innerHTML = `<i data-lucide="monitor" class="w-3.5 h-3.5"></i><span>Mobile Bezel: OFF</span>`;
+      }
+      lucide.createIcons();
+    }
+
+    // Reset Demo State
+    function resetAppDemo() {
+      state.claimSecondsLeft = 38;
+      state.radarSecondsLeft = 8062;
+      state.isFallbackTriggered = false;
+      document.getElementById('systemStatusText').innerText = "Active Dispatch: 180 Meals expiring in 02:14:00";
+      switchTab('radar');
+      alert("App state restored to fresh demo baseline.");
+    }
+
+    // Download Mock ESG Certificate
+    function downloadCertMock() {
+      alert("📄 ESG Compliance Certificate Generated!\n\nIssuer: SKYNEX Time-Aware Redistribution Engine\nVerified Standard: FSSAI Surplus Food Guidelines & UNEP 2024\nAudit Status: Verified Geotag + DPDP-Compliant Handover.");
+    }
+  </script>
+</body>
+</html>
