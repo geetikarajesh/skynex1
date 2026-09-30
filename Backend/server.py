@@ -1,4 +1,5 @@
 import os
+import certifi
 import asyncio
 from datetime import datetime, timezone
 from typing import List, Optional, Dict
@@ -22,7 +23,7 @@ SEARCH_RADIUS_METERS = int(os.getenv("SEARCH_RADIUS_METERS", "10000"))
 # ==============================================================================
 # DATABASE & REDIS CLIENTS
 # ==============================================================================
-mongo_client = AsyncIOMotorClient(MONGO_URI)
+mongo_client = AsyncIOMotorClient(MONGO_URI, tlsCAFile=certifi.where())
 db = mongo_client["skynex_dispatch"]
 redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
 
