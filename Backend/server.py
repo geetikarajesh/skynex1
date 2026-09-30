@@ -1,4 +1,3 @@
-bash 
 mkdir skynex_backend
 cd skynex_backend
 bash
